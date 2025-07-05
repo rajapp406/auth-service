@@ -84,57 +84,96 @@ export class AuthService {
   }
 
   static async login(email: string, password: string, ipAddress?: string, userAgent?: string) {
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      throw new AppError(401, 'Invalid credentials');
-    }
+    console.log('Login attempt for email:', email);
+    
+    try {
+      console.log('Looking up user in database...');
+      const user = await prisma.user.findUnique({ where: { email } });
+      if (!user) {
+        console.log('User not found for email:', email);
+        throw new AppError(401, 'Invalid credentials');
+      }
+      console.log('User found, checking password...');
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new AppError(401, 'Invalid credentials');
-    }
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        console.log('Invalid password for email:', email);
+        throw new AppError(401, 'Invalid credentials');
+      }
+      console.log('Password valid, generating tokens...');
 
-    const tokens = this.generateTokens({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-    });
-
-    // Create refresh token in database
-    await prisma.refreshToken.create({
-      data: {
-        token: tokens.refreshToken,
+      const tokens = this.generateTokens({
         userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    });
-
-    // Create session
-    await prisma.session.create({
-      data: {
-        userId: user.id,
-        ipAddress,
-        userAgent,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-      },
-    });
-
-    // Update last login
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date() },
-    });
-
-    return {
-      user: {
-        id: user.id,
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
         role: user.role,
-      },
-      tokens,
-    };
+      });
+
+      console.log('Creating refresh token in database...');
+      // Create refresh token in database
+      await prisma.refreshToken.create({
+        data: {
+          token: tokens.refreshToken,
+          userId: user.id,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        },
+      });
+
+      console.log('Updating user last login...');
+      // Update user last login
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lastLogin: new Date() },
+      });
+
+      // Store refresh token in Redis if available
+      if (redisClient) {
+        console.log('Storing refresh token in Redis...');
+        try {
+await redisClient.setEx(
+            `refresh_token:${user.id}:${tokens.refreshToken}`,
+            7 * 24 * 60 * 60, // 7 days in seconds
+            '1'
+          );
+          console.log('Successfully stored refresh token in Redis');
+        } catch (redisError) {
+          console.error('Error storing refresh token in Redis:', redisError);
+          // Continue even if Redis fails
+        }
+      } else {
+        console.log('Redis client not available, skipping Redis storage');
+      }
+
+      console.log('Creating session...');
+      // Create session
+      await prisma.session.create({
+        data: {
+          userId: user.id,
+          ipAddress,
+          userAgent,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        },
+      });
+
+      console.log('Login successful for user:', user.id);
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+        },
+        tokens,
+      };
+    } catch (error) {
+      console.error('Error in AuthService.login:', error);
+      if (error instanceof AppError) {
+        throw error; // Re-throw AppError as is
+      }
+      // Wrap other errors in AppError
+      const errorMessage = error instanceof Error ? error.message : 'Internal server error during login';
+      throw new AppError(500, errorMessage);
+    }
   }
 
   static async refreshToken(token: string) {

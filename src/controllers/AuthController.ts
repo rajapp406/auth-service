@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import * as jwt from 'jsonwebtoken';
 import { Config } from '../core/config/Config';
 import { ILogger } from '../core/interfaces/ILogger';
 import { AuthService } from '../services/auth.service';
@@ -26,6 +27,7 @@ export class AuthController {
 
   public async login(req: Request, res: Response): Promise<void> {
     try {
+      console.log(req.body);
       const { email, password } = req.body;
       const result = await AuthService.login(
         email,
@@ -58,21 +60,36 @@ export class AuthController {
       throw error;
     }
   }
-
+  public async test(req: Request, res: Response): Promise<void> {
+    try {
+      console.log('req.body');
+      res.status(200).json({
+        status: 'success',
+        data: 'test'
+      });
+    } catch (error) {
+      this.logger.error('Test failed:', error);
+      throw error;
+    }
+  }
   public async logout(req: Request, res: Response): Promise<void> {
     try {
       const { refreshToken } = req.body;
-      const userId = req.user?.id;
 
-      if (!userId) {
-        res.status(401).json({
+      if (!refreshToken) {
+        res.status(400).json({
           status: 'error',
-          message: 'Unauthorized'
+          message: 'Refresh token is required'
         });
         return;
       }
 
-      await AuthService.logout(userId, refreshToken);
+      // Extract user ID from the refresh token
+      const decoded = jwt.verify(refreshToken, this.config.getSecurityConfig().jwtSecret) as {
+        userId: string;
+      };
+
+      await AuthService.logout(decoded.userId, refreshToken);
 
       res.status(200).json({
         status: 'success',
@@ -80,7 +97,14 @@ export class AuthController {
       });
     } catch (error) {
       this.logger.error('Logout failed:', error);
-      throw error;
+      if (error instanceof jwt.JsonWebTokenError) {
+        res.status(401).json({
+          status: 'error',
+          message: 'Invalid refresh token'
+        });
+      } else {
+        throw error;
+      }
     }
   }
 

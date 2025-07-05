@@ -33,8 +33,10 @@ export class AuthRouteFactory implements IRouteFactory {
     router.post('/refresh-token', (req, res, next) => 
       this.controller.refreshToken(req, res).catch(next));
     
-    router.post('/logout', authenticate, (req, res, next) => 
+    router.post('/logout', (req, res, next) => 
       this.controller.logout(req, res).catch(next));
+    router.get('/test', (req, res, next) => 
+      this.controller.test(req, res).catch(next));
   }
 
   private setupV2Routes(router: Router): void {

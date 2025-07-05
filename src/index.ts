@@ -7,6 +7,7 @@ import { Logger } from './core/logger/Logger';
 import { SwaggerProvider } from './core/providers/SwaggerProvider';
 import { errorHandler } from './middleware/error.middleware';
 import { rateLimiter } from './middleware/rate-limiter.middleware';
+import { connectRedis } from './config/redis';
 
 const app = express();
 const config = new Config();
@@ -29,11 +30,28 @@ const authRouterV2 = new AuthRouteFactory(authController).createRouter('v2');
 app.use('/api/v1/auth', authRouterV1);
 app.use('/api/v2/auth', authRouterV2);
 
-// Error handling
+// Error handling middleware
 app.use(errorHandler);
 
 const PORT = config.getServerConfig().port;
 
-app.listen(PORT, () => {
-  logger.info(`Server is running on port ${PORT}`);
-}); 
+// Initialize Redis connection before starting the server
+const startServer = async () => {
+  try {
+    // Connect to Redis
+    console.log('Connecting to Redis...');
+    await connectRedis();
+    console.log('Successfully connected to Redis');
+
+    // Start the server
+    app.listen(PORT, () => {
+      console.log(`Auth Service running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Failed to start Auth Service:', error);
+    process.exit(1);
+  }
+};
+
+// Start the server
+startServer();

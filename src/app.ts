@@ -8,13 +8,21 @@ import { errorHandler } from './middleware/error.middleware';
 import { rateLimiter } from './middleware/rate-limiter.middleware';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerConfig } from './core/swagger/swagger';
+import { connectRedis } from './config/redis';
 
 const app = express();
 const config = new Config();
 const logger = new Logger(config);
+
+// Initialize Redis connection
+connectRedis().catch(error => {
+  logger.error('Failed to connect to Redis:', error);
+  process.exit(1);
+});
+
 const authController = new AuthController(config, logger);
 const authRouteFactory = new AuthRouteFactory(authController);
-console.log(authRouteFactory, 'authRouteFactory')
+logger.info('Auth route factory initialized');
 // Middleware
 app.use(cors({
   origin: config.getSecurityConfig().corsOrigin,
