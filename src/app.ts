@@ -24,10 +24,24 @@ const authController = new AuthController(config, logger);
 const authRouteFactory = new AuthRouteFactory(authController);
 logger.info('Auth route factory initialized');
 // Middleware
+const securityConfig = config.getSecurityConfig();
 app.use(cors({
-  origin: config.getSecurityConfig().corsOrigin,
-  credentials: true
+  origin: securityConfig.corsOrigin,
+  credentials: true,  // Important: Allow credentials
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['set-cookie'],
+  optionsSuccessStatus: 200  // Some legacy browsers choke on 204
 }));
+
+// Handle preflight requests
+app.options('*', cors({
+  origin: securityConfig.corsOrigin,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 app.use(rateLimiter);
 

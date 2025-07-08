@@ -20,6 +20,10 @@ export class FitnessApplication {
     private readonly logger: ILogger
   ) {
     this.app = express();
+    
+    // Configure trust proxy before any middleware
+   // this.app.set('trust proxy', this.config.getIsDevelopment() ? 1 : 'loopback');
+    
     this.setupSwagger();
     this.setupMiddleware();
     this.setupRoutes();

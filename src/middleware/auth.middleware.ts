@@ -3,16 +3,21 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../infrastructure/database/prisma';
 import { config } from '../config/config';
 import { AppError } from './errorHandler';
-import { Role } from '@prisma/client';
+import { type User as PrismaUser, Role } from '@prisma/client';
 
 declare global {
   namespace Express {
+    interface User {
+      id: string;
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+      role: string;
+      accessToken: string;
+    }
+    
     interface Request {
-      user?: {
-        id: string;
-        email: string;
-        role: Role;
-      };
+      user?: User;
     }
   }
 }
@@ -44,10 +49,14 @@ export const authenticate = async (
       throw new AppError(401, 'User no longer exists');
     }
 
+    // Create a user object with only the necessary fields
     req.user = {
       id: user.id,
       email: user.email,
-      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role as string,
+      accessToken: token,
     };
 
     next();
@@ -60,7 +69,7 @@ export const authenticate = async (
   }
 };
 
-export const authorize = (...allowedRoles: Role[]) => {
+export const authorize = (...allowedRoles: string[]) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
       throw new AppError(401, 'Not authenticated');

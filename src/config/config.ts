@@ -3,8 +3,9 @@ import { z } from 'zod';
 const envSchema = z.object({
   // Server
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.string().default('3005'),
+  PORT: z.string().default('3101'),
   API_VERSION: z.string().default('v1'),
+  SERVER_URL: z.string().default('http://localhost:3101'),
 
   // Database
   DATABASE_URL: z.string(),
@@ -12,8 +13,8 @@ const envSchema = z.object({
   // JWT
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
-  JWT_ACCESS_EXPIRATION: z.string().default('15m'),
-  JWT_REFRESH_EXPIRATION: z.string().default('7d'),
+  JWT_ACCESS_EXPIRATION: z.string().regex(/^\d+[smhd]$/).default('15m'),
+  JWT_REFRESH_EXPIRATION: z.string().regex(/^\d+[smhd]$/).default('7d'),
 
   // Redis
   REDIS_URL: z.string(),
@@ -24,7 +25,12 @@ const envSchema = z.object({
 
   // Security
   BCRYPT_ROUNDS: z.string().default('12'),
-  CORS_ORIGIN: z.string().default('http://localhost:3101'),
+  CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  
+  // Google OAuth
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_CALLBACK_URL: z.string().default('http://localhost:3000/auth/google/callback'),
 });
 
 const parseEnv = () => {
@@ -49,6 +55,13 @@ export const config = {
   server: {
     port: parseInt(env.PORT, 10),
     apiVersion: env.API_VERSION,
+    url: env.SERVER_URL,
+  },
+  
+  google: {
+    clientId: env.GOOGLE_CLIENT_ID || '',
+    clientSecret: env.GOOGLE_CLIENT_SECRET || '',
+    callbackUrl: env.GOOGLE_CALLBACK_URL,
   },
 
   db: {

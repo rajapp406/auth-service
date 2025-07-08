@@ -28,6 +28,8 @@ start_postgres() {
             echo -e "${GREEN}PostgreSQL is already running${NC}"
         else
             brew services start postgresql@17
+            # Wait for PostgreSQL to start
+            sleep 5
         fi
     else
         # Linux
@@ -35,8 +37,18 @@ start_postgres() {
             echo -e "${GREEN}PostgreSQL is already running${NC}"
         else
             sudo systemctl start postgresql
+            # Wait for PostgreSQL to start
+            sleep 5
         fi
     fi
+    
+    # Grant necessary permissions to postgres user
+    echo -e "\n${YELLOW}Setting up PostgreSQL permissions...${NC}"
+    psql -U postgres -c "ALTER DATABASE auth_db OWNER TO postgres;" || echo -e "${YELLOW}Warning: Could not set owner of auth_db to postgres${NC}"
+    psql -U postgres -d auth_db -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres;" || echo -e "${YELLOW}Warning: Could not grant table privileges${NC}"
+    psql -U postgres -d auth_db -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;" || echo -e "${YELLOW}Warning: Could not grant sequence privileges${NC}"
+    psql -U postgres -d auth_db -c "GRANT ALL PRIVILEGES ON DATABASE auth_db TO postgres;" || echo -e "${YELLOW}Warning: Could not grant database privileges${NC}"
+    echo -e "${GREEN}PostgreSQL permissions updated${NC}"
 }
 
 # Function to start Redis

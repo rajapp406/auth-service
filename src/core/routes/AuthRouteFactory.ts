@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { AuthController } from '../../controllers/AuthController';
+import { GoogleAuthController } from '../../controllers/google-auth.controller';
 import { authenticate } from '../../middleware/auth.middleware';
 import { IRouteFactory } from '../interfaces/IRouteFactory';
 
@@ -45,5 +46,8 @@ export class AuthRouteFactory implements IRouteFactory {
     // Additional V2 routes
     router.post('/revoke-all', authenticate, (req, res, next) => 
       this.controller.revokeAllSessions(req, res).catch(next));
+    router.post('/google', (req, res, next) =>
+      GoogleAuthController.authenticate(req, res, next).catch(next)
+    );
   }
 } 

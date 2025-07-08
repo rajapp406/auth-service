@@ -22,7 +22,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
-app.use(rateLimiter);
+//app.use(rateLimiter);
 
 // Routes
 const authRouterV1 = new AuthRouteFactory(authController).createRouter('v1');

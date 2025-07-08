@@ -27,61 +27,66 @@ export const swaggerConfig = (config: Config) => ({
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'Enter JWT Bearer token **_only_**'
-      },
-      apiKeyAuth: {
-        type: 'apiKey',
-        in: 'header',
-        name: 'Authorization'
+        description: 'JWT Bearer token for authentication'
       }
     },
     schemas: {
-      User: {
-        type: 'object',
-        properties: {
-          id: { type: 'string', format: 'uuid' },
-          email: { type: 'string', format: 'email' },
-          firstName: { type: 'string', nullable: true },
-          lastName: { type: 'string', nullable: true },
-          role: { type: 'string', enum: ['USER', 'ADMIN'] }
-        }
-      },
-      AuthTokens: {
+      TokenResponse: {
         type: 'object',
         properties: {
           accessToken: { type: 'string' },
-          refreshToken: { type: 'string' }
+          refreshToken: { type: 'string' },
+          expiresIn: { type: 'number' },
+          tokenType: { type: 'string', default: 'Bearer' }
         }
       },
       Error: {
         type: 'object',
         properties: {
-          status: { type: 'string', example: 'error' },
-          message: { type: 'string' }
+          statusCode: { type: 'integer' },
+          message: { type: 'string' },
+          error: { type: 'string' },
+          timestamp: { type: 'string', format: 'date-time' },
+          path: { type: 'string' }
+        }
+      },
+      RegisterDto: {
+        type: 'object',
+        required: ['email', 'password'],
+        properties: {
+          email: { type: 'string', format: 'email' },
+          password: { type: 'string', minLength: 8 },
+          firstName: { type: 'string' },
+          lastName: { type: 'string' }
+        }
+      },
+      LoginDto: {
+        type: 'object',
+        required: ['email', 'password'],
+        properties: {
+          email: { type: 'string', format: 'email' },
+          password: { type: 'string' }
+        }
+      },
+      RefreshTokenDto: {
+        type: 'object',
+        required: ['refreshToken'],
+        properties: {
+          refreshToken: { type: 'string' }
         }
       }
     }
   },
-  security: [{ bearerAuth: [] }],
   paths: {
     '/auth/register': {
       post: {
-        tags: ['Authentication'],
+        tags: ['Auth'],
         summary: 'Register a new user',
         requestBody: {
           required: true,
           content: {
             'application/json': {
-              schema: {
-                type: 'object',
-                required: ['email', 'password'],
-                properties: {
-                  email: { type: 'string', format: 'email' },
-                  password: { type: 'string', format: 'password' },
-                  firstName: { type: 'string' },
-                  lastName: { type: 'string' }
-                }
-              }
+              schema: { $ref: '#/components/schemas/RegisterDto' }
             }
           }
         },
@@ -90,18 +95,12 @@ export const swaggerConfig = (config: Config) => ({
             description: 'User registered successfully',
             content: {
               'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    user: { $ref: '#/components/schemas/User' },
-                    tokens: { $ref: '#/components/schemas/AuthTokens' }
-                  }
-                }
+                schema: { $ref: '#/components/schemas/TokenResponse' }
               }
             }
           },
-          '409': {
-            description: 'Email already registered',
+          '400': {
+            description: 'Bad Request',
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/Error' }
@@ -113,20 +112,13 @@ export const swaggerConfig = (config: Config) => ({
     },
     '/auth/login': {
       post: {
-        tags: ['Authentication'],
+        tags: ['Auth'],
         summary: 'Login user',
         requestBody: {
           required: true,
           content: {
             'application/json': {
-              schema: {
-                type: 'object',
-                required: ['email', 'password'],
-                properties: {
-                  email: { type: 'string', format: 'email' },
-                  password: { type: 'string', format: 'password' }
-                }
-              }
+              schema: { $ref: '#/components/schemas/LoginDto' }
             }
           }
         },
@@ -135,97 +127,7 @@ export const swaggerConfig = (config: Config) => ({
             description: 'Login successful',
             content: {
               'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    user: { $ref: '#/components/schemas/User' },
-                    tokens: { $ref: '#/components/schemas/AuthTokens' }
-                  }
-                }
-              }
-            }
-          },
-          '401': {
-            description: 'Invalid credentials',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/Error' }
-              }
-            }
-          }
-        }
-      }
-    },
-    '/auth/refresh-token': {
-      post: {
-        tags: ['Authentication'],
-        summary: 'Refresh access token',
-        security: [{ bearerAuth: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                required: ['refreshToken'],
-                properties: {
-                  refreshToken: { type: 'string' }
-                }
-              }
-            }
-          }
-        },
-        responses: {
-          '200': {
-            description: 'Tokens refreshed successfully',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/AuthTokens' }
-              }
-            }
-          },
-          '401': {
-            description: 'Invalid or expired refresh token',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/Error' }
-              }
-            }
-          }
-        }
-      }
-    },
-    '/auth/logout': {
-      post: {
-        tags: ['Authentication'],
-        summary: 'Logout user',
-        description: 'Requires Authorization header: Bearer <token>',
-        security: [{ bearerAuth: [] }, { apiKeyAuth: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                required: ['refreshToken'],
-                properties: {
-                  refreshToken: { type: 'string' },
-                }
-              }
-            }
-          }
-        },
-        responses: {
-          '200': {
-            description: 'Logged out successfully',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    message: { type: 'string', example: 'Logged out successfully' }
-                  }
-                }
+                schema: { $ref: '#/components/schemas/TokenResponse' }
               }
             }
           },
@@ -239,6 +141,38 @@ export const swaggerConfig = (config: Config) => ({
           }
         }
       }
+    },
+    '/auth/refresh-token': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Refresh access token',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/RefreshTokenDto' }
+            }
+          }
+        },
+        responses: {
+          '200': {
+            description: 'Token refreshed successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/TokenResponse' }
+              }
+            }
+          },
+          '401': {
+            description: 'Invalid refresh token',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Error' }
+              }
+            }
+          }
+        }
+      }
     }
   }
-}); 
+});

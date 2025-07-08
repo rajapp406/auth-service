@@ -37,6 +37,7 @@ export class AuthController {
 
   static async login(req: Request, res: Response, next: NextFunction) {
     try {
+      console.log('--------', req.body)
       const { email, password } = loginSchema.parse(req.body);
       const ipAddress = req.ip;
       const userAgent = req.get('user-agent');

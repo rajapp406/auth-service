@@ -59,6 +59,10 @@ export class MiddlewareProvider implements IMiddlewareProvider {
   }
 
   private registerSecurityMiddleware(app: Application): void {
+    // Configure trust proxy to handle X-Forwarded-* headers
+    // This is important when running behind a reverse proxy like Nginx or a load balancer
+    app.set('trust proxy', this.config.getIsDevelopment() ? 1 : 'loopback');
+    
     // Configure Helmet with less restrictive settings for development
     if (this.config.getIsDevelopment()) {
       app.use(helmet({

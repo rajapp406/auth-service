@@ -71,7 +71,13 @@ export class Config {
 
   public getSecurityConfig(): SecurityConfig {
     return {
-      corsOrigin: this.getArray('CORS_ORIGIN', ['http://localhost:3101, http://localhost:3000']),
+      corsOrigin: this.getArray('CORS_ORIGIN', [
+        'http://localhost:3101',
+        'http://localhost:3000',
+        'http://localhost:4001',
+        'http://localhost:5173',
+        'http://127.0.0.1:5173'
+      ]),
       jwtSecret: this.get('JWT_SECRET') || 'your-super-secret-key-change-in-production',
       jwtExpiresIn: this.get('JWT_EXPIRES_IN') || '1d'
     };
