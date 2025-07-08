@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { config } from '../config/config';
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
+import { userServiceClient } from '../infrastructure/grpc/UserServiceClient';
 import { redis } from '../utils/redis';
 import type { RedisService } from '../utils/redis';
 import { 
@@ -345,11 +346,73 @@ export class AuthService {
       throw new AppError(500, 'Failed to process user data');
     }
 
+    // Create user profile in the user service via gRPC (fire and forget)
+    AuthService.createUserProfileInBackground({
+      userId: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      authProvider: 'EMAIL',
+    }).catch((error: unknown) => {
+      // This catch is just to prevent unhandled promise rejections
+      // Errors are already logged in the createUserProfileInBackground method
+      logger.debug('Background user profile creation completed with error', {
+        userId: user.id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    });
+
     return {
       user: sanitizedUser,
       tokens,
     };
   }
+  /**
+   * Create user profile in the background without blocking the registration flow
+   * @param profileData User profile data
+   */
+  private static async createUserProfileInBackground(profileData: {
+    userId: string;
+    email: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    authProvider: string;
+  }): Promise<void> {
+    try {
+      logger.info('Starting background user profile creation', {
+        userId: profileData.userId,
+        email: profileData.email,
+      });
+
+      // Add a small delay to ensure the main registration flow completes
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      await userServiceClient.createUser({
+        userId: profileData.userId,
+        email: profileData.email,
+        firstName: profileData.firstName,
+        lastName: profileData.lastName,
+        authProvider: profileData.authProvider,
+      });
+
+      logger.info('Successfully created user profile in user service via gRPC', { 
+        userId: profileData.userId,
+        email: profileData.email
+      });
+    } catch (error) {
+      // Log the error but don't throw to avoid unhandled rejections
+      logger.error('Failed to create user profile in user service via gRPC', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        userId: profileData.userId,
+        email: profileData.email,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      
+      // Re-throw to allow the caller to handle the error if needed
+      throw error;
+    }
+  }
+
   /**
    * Sanitize user data before sending to client
    */
